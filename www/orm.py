@@ -1,7 +1,7 @@
 import asyncio
 import logging
 import aiomysql
-
+from Fields import Field
 
 #设置调试级别level,此处为logging.INFO,不设置logging.info()没有任何作用等同于pass
 logging.basicConfig(level=logging.INFO)
@@ -31,29 +31,26 @@ async def select(sql,args,size=None):
     log(sql,args)
     global _pool
 
-    with (await _pool) as conn:
-        #创建游标
-        cur = await conn.cursor(aiomysql.DictCursor)
-        await cur.execute(sql.replace("?","%s"),args or ())
+    # 得到一个连接对象，conn指向这个连接对象
+    async with _pool.get() as conn:
+        async with conn.cursor(aiomysql.DictCursor) as cur:
+            #sql的占位符是？，mysql是%s
+            #excute 代表执行的sql语句
+            await cur.execute(sql.replace('?',"%s"),args or ())
+        if size:
+            rs = await cur.fetchmany(size)
+        else:
+            rs = await cur.fetchall()
 
-    if size:
-        rs = await cur.fetchmany(size)
-    else:
-        rs = await cur.fetchall()
-
-    await cur.close()
+    # await cur.close()
     logging.info("rows returned:%s"%len(rs))
 
     return rs
-
-
-
-
-
 #定义一个通用的exectue函数，用来执行insert,update,delete
 async def execute(sql,args):
     log(sql,args)
 
+    # with (await _pool) as conn:
     with (await _pool) as conn:
         try:
             # 创建游标
@@ -65,43 +62,6 @@ async def execute(sql,args):
             raise
         return affected
 
-class Field(object):
-
-    def __init__(self,name,column_type,primary_key,default):
-        self.name = name
-        self.column_type = column_type
-        self.primary_key = primary_key
-        self.default = default
-
-    def __str__(self):
-        # return "<%s, %s: %s>"%(self.__class__.name,self.column_type,self.name)
-        return "222222222"
-
-class StringField(Field):
-
-    def __init__(self, name=None, primary_key=False, default=None, ddl='varchar(100)'):
-        super().__init__(name, ddl, primary_key, default)
-
-class BooleanField(Field):
-
-    def __init__(self, name=None, default=False):
-        super().__init__(name, 'boolean', False, default)
-
-class IntegerField(Field):
-
-    def __init__(self, name=None, primary_key=False, default=0):
-        super().__init__(name, 'bigint', primary_key, default)
-
-class FloatField(Field):
-
-    def __init__(self, name=None, primary_key=False, default=0.0):
-        super().__init__(name, 'real', primary_key, default)
-
-class TextField(Field):
-
-    def __init__(self, name=None, default=None):
-        super().__init__(name, 'text', False, default)
-
 
 # 通过metaclass将子类的映射关系读出来
 class ModelMetaclass(type):
@@ -112,7 +72,7 @@ class ModelMetaclass(type):
             return type.__new__(cls,name,bases,attrs)
 
         #获取table名称
-        tableName = attrs.get("__table__",None) or name
+        tableName = attrs.get("__table__") or name
         logging.info("Fount model: %s (table: %s)"%(name,tableName))
 
         #获取所有的Field和主键名
@@ -135,12 +95,14 @@ class ModelMetaclass(type):
                     # 判断主键是否已被赋值
                     if primaryKey:
                         raise RuntimeError('Duplicate primary key for field: %s' % k)
-                        primaryKey = k
+
+                    primaryKey = k
                 else:
                     fields.append(k)
         if not primaryKey:
             raise RuntimeError("Primary key not found...")
 
+        # 删除类中的属性，因为会和生成的实例属性重名
         for k in mappings.keys():
             attrs.pop(k)
 
