@@ -1,7 +1,7 @@
 import asyncio
 import logging
 import aiomysql
-from Fields import Field
+from fields import Field
 
 #设置调试级别level,此处为logging.INFO,不设置logging.info()没有任何作用等同于pass
 logging.basicConfig(level=logging.INFO)
@@ -10,7 +10,7 @@ def log(sql,args=()):
     logging.info("SQL:%s"%sql)
 
 # 创建一个全局连接池
-async def creat_pool(loop,**kw):
+async def create_pool(loop,**kw):
     logging.info("创建数据库连接池...")
     global _pool
     _pool = await aiomysql.create_pool(
@@ -47,20 +47,29 @@ async def select(sql,args,size=None):
 
     return rs
 #定义一个通用的exectue函数，用来执行insert,update,delete
-async def execute(sql,args):
-    log(sql,args)
-
-    # with (await _pool) as conn:
-    with (await _pool) as conn:
+async def execute(sql, args, autocommit=True):
+    log(sql, args)
+    with await _pool as conn:
+        if not autocommit:
+            await conn.begin()
         try:
-            # 创建游标
-            cur = await conn.cursor()
-            await cur.execute(sql.replace("?"),"%s",args)
-            affected = cur.rowcount
-            await cur.close()
+            async with await conn.cursor(aiomysql.DictCursor) as cur:
+                await cur.execute(sql.replace('?', "%s"), args)
+                affected = cur.rowcount
+            if not autocommit:
+                await conn.commit()
         except BaseException as e:
-            raise
+            if not autocommit:
+                await conn.rollback()
+            raise e
         return affected
+
+# 创建占位符，用于insert，updae，delete语句
+def create_args_string(num):
+    L = []
+    for i in range(num):
+        L.append('?')
+    return ','.join(L)
 
 
 # 通过metaclass将子类的映射关系读出来
@@ -134,7 +143,7 @@ class Model(dict,metaclass=ModelMetaclass):
         self[key] = value
 
     #得到属性
-    def __getattr__(self, key,value):
+    def __getattr__(self, key):
 
         try:
             return self[key]
@@ -164,7 +173,6 @@ class Model(dict,metaclass=ModelMetaclass):
             return None
         return cls(**rs[0])
 
-    @classmethod
     async def save(self):
         args = list(map(self.getValueOrDefault, self.__fields__))
         args.append(self.getValueOrDefault(self.__primary_key__))
