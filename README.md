@@ -6,7 +6,7 @@
 
 ---
 
-项目后端使用Python3.5编写，基于aiohttp库，并以Jinja2作为模板引擎。使用MySQL数据库。前端部分使用的是uikit CSS框架。内含自己实现的简易web框架和ORM框架。
+项目后端使用Python3.63编写，基于aiohttp库，并以Jinja2作为模板引擎。使用MySQL数据库。前端部分使用的是uikit CSS框架。内含自己实现的简易web框架和ORM框架。
 
 ---
 
