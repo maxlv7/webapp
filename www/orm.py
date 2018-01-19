@@ -46,6 +46,7 @@ async def select(sql,args,size=None):
     logging.info("rows returned:%s"%len(rs))
 
     return rs
+
 #定义一个通用的exectue函数，用来执行insert,update,delete
 async def execute(sql, args, autocommit=True):
     log(sql, args)
