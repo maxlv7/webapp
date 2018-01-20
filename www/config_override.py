@@ -1,0 +1,6 @@
+config = {
+    'db':
+        {
+            'host':"localhost"
+        }
+}
