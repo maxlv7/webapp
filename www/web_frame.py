@@ -36,7 +36,7 @@ def post(path):
         return wrapper
     return decorator
 
-
+# 获取函数值为空的命名关键字
 def get_required_kw_args(fn):
     args = []
     params = inspect.signature(fn).parameters
@@ -46,8 +46,8 @@ def get_required_kw_args(fn):
             args.append(name)
     return tuple(args)
 
+# 获取命名关键字参数名
 def get_named_kw_args(fn):
-
     # 如果url处理函数需要传入关键字参数，获取这个key
     args = []
     params = inspect.signature(fn).parameters
@@ -56,21 +56,21 @@ def get_named_kw_args(fn):
             args.append(name)
     return tuple(args)
 
-
+# 判断函数fn是否带有命名关键字参数
 def has_named_kw_args(fn):  # 判断是否有指定命名关键字参数
     params = inspect.signature(fn).parameters
     for name, param in params.items():
         if param.kind == inspect.Parameter.KEYWORD_ONLY:
             return True
 
-
+# 判断函数fn是否带有关键字参数
 def has_var_kw_arg(fn):  # 判断是否有关键字参数，VAR_KEYWORD对应**kw
     params = inspect.signature(fn).parameters
     for name, param in params.items():
         if param.kind == inspect.Parameter.VAR_KEYWORD:
             return True
 
-
+# 函数fn是否有请求关键字
 # 判断是否存在一个参数叫做request，并且该参数要在其他普通的位置参数之后，即属于*kw或者**kw或者*或者*args之后的参数
 def has_request_arg(fn):
     sig = inspect.signature(fn)
@@ -86,18 +86,22 @@ def has_request_arg(fn):
                 fn.__name__, str(sig)))
     return found
 
-
+#定义RequestHandler类，封装url处理函数
+# RequestHandler的目的是从url函数中分析需要提取的参数
+# 调用url参数，将结果转换为web.Response
 class RequestHandler(object):
     def __init__(self,app,fn):
-        self._app = app
-        self._func = fn
+        self._app = app #web application
+        self._func = fn #handler
         self._has_request_arg = has_request_arg(fn)
         self._has_var_kw_arg = has_var_kw_arg(fn)
         self._has_named_kw_args = has_named_kw_args(fn)
         self._named_kw_args = get_named_kw_args(fn)
         self._required_kw_args = get_required_kw_args(fn)
 
+    # 定义了__call__，其实例可以被视为函数
     async def __call__(self, request):
+        logging.info("通过call被调用。。。")
         kw = None
 
         if self._has_var_kw_arg or self._has_named_kw_args or self._required_kw_args:
@@ -170,9 +174,13 @@ def add_route(app,fn):
     if not asyncio.iscoroutinefunction(fn) and not inspect.isgeneratorfunction(fn):
         fn = asyncio.coroutine(fn)
 
-    logging.info("add route %s %s ==> %s(%s)"%(method,fn.__name__,','.join(inspect.signature(fn).parameters.keys())))
-
+    logging.info("---> add route %s %s => %s(%s)" % (method, path, fn.__name__, '. '.join(inspect.signature(fn).parameters.keys())))
+    # 注册request handler
+    # RequestHandle类中有__callable__方法，因此RequestHandler(app, fn)
+    # 相当于创建了一个url处理函数，函数名就是fn
     app.router.add_route(method,path,RequestHandler(app,fn))
+
+    logging.info("add route %s %s %s"%(method,path,RequestHandler(app,fn)))
 
 
 def add_routes(app,module_name):
@@ -181,18 +189,24 @@ def add_routes(app,module_name):
     if n == (-1):
         mod = __import__(module_name,globals(),locals())
     else:
-        # name = module_name[n+1:]
-        # mod = getattr(__import__(module_name[:n],globals(),locals(),[name]),name)
         mod = __import__(module_name[:n],globals(),locals())
+    # logging.info("{}".format(dir(mod)))
     for attr in dir(mod):
         if attr.startswith('_'):
+            # logging.info('{}'.format(attr))
             continue
         fn = getattr(mod,attr)
+        # logging.info("-----{}-----".format(fn.__name__))
         if callable(fn):
-            method = getattr(fn,'__method__')
-            path = getattr(fn,'__route__')
-            if method and path:
-                add_route(app,fn)
+            try:
+                method = getattr(fn,'__method__')
+                path = getattr(fn,'__route__')
+            except:
+                logging.info("{} no attr!".format(fn.__name__))
+            else:
+                logging.info("success get method:{}".format(fn.__name__))
+                if method and path:
+                    add_route(app,fn)
 
 
 

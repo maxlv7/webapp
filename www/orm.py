@@ -7,7 +7,7 @@ from fields import Field
 logging.basicConfig(level=logging.INFO)
 
 def log(sql,args=()):
-    logging.info("SQL:%s"%sql)
+    logging.info("ORM==>SQL:%s"%sql)
 
 # 创建一个全局连接池
 async def create_pool(loop,**kw):
@@ -200,6 +200,18 @@ class Model(dict,metaclass=ModelMetaclass):
                 raise ValueError('Invalid limit value: %s' % str(limit))
         rs = await select(' '.join(sql), args)
         return [cls(**r) for r in rs]
+
+    @classmethod
+    async def findNumber(cls, selectField, where=None, args=None):
+        ' find number by select and where. '
+        sql = ['select %s _num_ from `%s`' % (selectField, cls.__table__)]
+        if where:
+            sql.append('where')
+            sql.append(where)
+        rs = await select(' '.join(sql), args, 1)
+        if len(rs) == 0:
+            return None
+        return rs[0]['_num_']
 
     async def save(self):
         args = list(map(self.getValueOrDefault, self.__fields__))
