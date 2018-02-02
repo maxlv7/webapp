@@ -77,8 +77,8 @@ async def auth_factory(app,handler):
             if user:
                 logging.info("set current user: %s" % user.email)
                 request.__user__ = user # 将用户信息绑定到请求上
-            if request.path.startswith('/manage/') and (request.__user__ is None or not request.__user__.admin):
-                return web.HTTPFound('/signin')
+        if request.path.startswith('/manage/') and (request.__user__ is None or not request.__user__.admin):
+            return web.HTTPFound('/signin')
         return await handler(request)
     return auth
 
@@ -95,6 +95,7 @@ async def response_factory(app,handler):
 
         # 调用handler来处理请求，并返回响应结果
         # 这个handler就是RequestHandler的实例
+        # 这个request就是请求的内容
         r = await handler(request)
 
         logging.info("r == {}".format(str(r)))
@@ -121,8 +122,9 @@ async def response_factory(app,handler):
                 res.content_type = "application/json;charset=utf-8"
                 return  res
             else:
-                r['__users__'] = request.__user__ # 增加__user__,前端页面将依次来决定是否显示评论框
+                r['__user__'] = request.__user__ # 增加__user__,前端页面将依次来决定是否显示评论框
                 # r['__users__'] = "11111"# 增加__user__,前端页面将依次来决定是否显示评论框
+                logging.info("Full r is :{}".format(r))
                 res = web.Response(body=app['__templating__'].get_template(
                     template).render(**r).encode('utf-8'))
                 res.content_type = "text/html;charset=utf-8"

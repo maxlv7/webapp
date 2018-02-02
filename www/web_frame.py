@@ -149,7 +149,9 @@ class RequestHandler(object):
         if self._required_kw_args:
             for name in self._required_kw_args:
                 if name not in kw:
-                    return web.HTTPBadRequest("miss argument:%s"%name)
+                    logging.info("name === %s"%name)
+                    return web.HTTPBadRequest()
+                    # return web.HTTPBadRequest("miss argument:%s"%name)
 
         logging.info("call with args:%s"%str(kw))
 
@@ -180,7 +182,7 @@ def add_route(app,fn):
     # 相当于创建了一个url处理函数，函数名就是fn
     app.router.add_route(method,path,RequestHandler(app,fn))
 
-    logging.info("add route %s %s %s"%(method,path,RequestHandler(app,fn)))
+    # logging.info("add route %s %s %s"%(method,path,RequestHandler(app,fn)))
 
 
 def add_routes(app,module_name):
@@ -202,7 +204,8 @@ def add_routes(app,module_name):
                 method = getattr(fn,'__method__')
                 path = getattr(fn,'__route__')
             except:
-                logging.info("{} no attr!".format(fn.__name__))
+                pass
+                # logging.info("{} no attr!".format(fn.__name__))
             else:
                 logging.info("success get method:{}".format(fn.__name__))
                 if method and path:

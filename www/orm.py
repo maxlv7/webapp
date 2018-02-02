@@ -220,6 +220,21 @@ class Model(dict,metaclass=ModelMetaclass):
         if rows != 1:
             logging.warn('failed to insert record: affected rows: %s' % rows)
 
+    async def remove(self):
+        args = [self.getValue(self.__primary_key__)]  # 取得主键作为参数
+        rows = await execute(self.__delete__, args)  # 调用默认的delete语句
+        if rows != 1:
+            logging.warn("failed to remove by primary key: affected rows %s" % rows)
+
+    async def update(self):
+        # 像time.time,next_id之类的函数在插入的时候已经调用过了,没有其他需要实时更新的值,因此调用getValue
+        args = list(map(self.getValue, self.__fields__))
+        args.append(self.getValue(self.__primary_key__))
+        rows = await execute(self.__update__, args)
+        if rows != 1:
+            logging.warn("failed to update by primary key: affected rows %s" % rows)
+
+
 
 
 
